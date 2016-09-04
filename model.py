@@ -21,6 +21,7 @@ class GAN(object):
 
     self.initializer = tf.contrib.layers.xavier_initializer_conv2d(uniform=False)
 
+
     self.generator_dims = [128, 64, 32, 16, image_dims]
     self.generator_shapes = [2, 4, 8, 16, 28]
     self.generator_kernel_sizes = [2, 3, 3, 3, 3]
@@ -28,10 +29,12 @@ class GAN(object):
     self.discriminator_dims = [[5]]
     self.discriminator_kernel_sizes = [[28]]
 
+
     weights = self._initialize_weights()
     self.all_weights = weights
-    self.real_images = tf.placeholder("float", [self.batch_size, self.image_size, self.image_size, self.image_dims])
-    self.fake_images = tf.placeholder("float", [self.batch_size, self.image_size, self.image_size, self.image_dims])
+
+    self.images = tf.placeholder("float", [self.batch_size, self.image_size, self.image_size, self.image_dims])
+    self.z = tf.placeholder("float", [self.batch_size, 1, 1, self.z_dims])
 
     self.gen_cost = self.get_gen_cost()
     self.disc_cost = dict()
@@ -81,9 +84,8 @@ class GAN(object):
 
     return all_weights
 
-  def generator(self, z):
-    #z = tf.placeholder("float", [self.batch_size, 1, 1, self.z_dims])
-    prev_layer = z
+  def generator(self):
+    prev_layer = self.z
     for layer_i in xrange(len(self.generator_dims)):
       conv = tf.nn.conv2d_transpose(prev_layer, self.all_weights['gen_w'+str(layer_i)], 
           output_shape=[self.batch_size, 
@@ -97,8 +99,8 @@ class GAN(object):
     return prev_layer
 
 
-  def discriminator_logits(self, disc_i, images):
-    prev_layer = images
+  def discriminator_logits(self, disc_i):
+    prev_layer = self.images
     for layer_i in xrange(len(self.discriminator_dims[disc_i])):
       conv = tf.nn.conv2d(prev_layer, 
           self.all_weights['disc'+str(disc_i)+'_w'+str(layer_i)],
