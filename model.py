@@ -1,6 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import division, print_function, absolute_import
 
 from datetime import datetime
 import os.path
@@ -29,7 +27,6 @@ class GAN(object):
     self.discriminator_dims = [[5]]
     self.discriminator_kernel_sizes = [[28]]
 
-
     weights = self._initialize_weights()
     self.all_weights = weights
 
@@ -40,10 +37,6 @@ class GAN(object):
     self.disc_cost = dict()
     for disc_i in xrange(len(self.discriminator_dims)):
       self.disc_cost[disc_i] = self.get_disc_cost(disc_i)
-
-    init = tf.initialize_all_variables()
-    self.sess = tf.Session()
-    self.sess.run(init)
 
 
   def _initialize_weights(self):
@@ -84,6 +77,7 @@ class GAN(object):
 
     return all_weights
 
+
   def generator(self):
     prev_layer = self.z
     for layer_i in xrange(len(self.generator_dims)):
@@ -94,7 +88,7 @@ class GAN(object):
                 self.generator_dims[layer_i]], 
           strides=[1, 2, 2, 1], padding='SAME')
       bias = tf.nn.bias_add(conv, self.all_weights['gen_b'+str(layer_i)])
-      prev_layer = tf.nn.relu(bias, name=scope.name)
+      prev_layer = tf.nn.elu(bias, name=scope.name)
       
     return prev_layer
 
@@ -106,7 +100,7 @@ class GAN(object):
           self.all_weights['disc'+str(disc_i)+'_w'+str(layer_i)],
           strides=[1, 2, 2, 1], padding='SAME')
       bias = tf.nn.bias_add(conv, self.all_weights['disc'+str(disc_i)+'_b'+str(layer_i)])
-      prev_layer = tf.nn.relu(bias, name=scope.name)
+      prev_layer = tf.nn.elu(bias, name=scope.name)
     return prev_layer
 
   def get_gen_cost(self):
@@ -115,7 +109,7 @@ class GAN(object):
   def get_disc_cost(self, i):
     pass
 
-  def train_step(self):
+  def train_step(self, global_step):
     pass
 
 
