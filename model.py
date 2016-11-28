@@ -9,107 +9,166 @@ import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
+import ops
+import flags
+
 class GAN(object):
   
-  def __init__(self, image_size=28, image_dims=1, z_dims=16, batch_size=256):
-    self.image_size = image_size
-    self.image_dims = image_dims 
-    self.z_dims = z_dims
-    self.batch_size = batch_size
+    def __init__(self, image_size=28, image_dim=1, z_dim=16, batch_size=256):
+        self.image_size = image_size
+        self.image_dim = image_dim 
+        self.z_dim = z_dim
+        self.batch_size = batch_size
 
-    self.initializer = tf.contrib.layers.xavier_initializer_conv2d(uniform=False)
+        self.initializer = tf.contrib.layers.xavier_initializer_conv2d(uniform=False)
 
+        self.generator_params = {
+            'dim' : [128, 64, 32, 16, image_dim],
+            'shape' : [2, 4, 7, 14, 28],
+            'ksize' : [2, 4, 4, 4, 4]
+            }
 
-    self.generator_dims = [128, 64, 32, 16, image_dims]
-    self.generator_shapes = [2, 4, 8, 16, 28]
-    self.generator_kernel_sizes = [2, 3, 3, 3, 3]
+        self.discriminators_params = [
+                {
+                    'dim': [5, 2],
+                    'ksize' : [28, 1]
+                }
+            ]
 
-    self.discriminator_dims = [[5]]
-    self.discriminator_kernel_sizes = [[28]]
+        self.all_weights, self.gen_vars, self.disc_vars  = self._initialize_weights()
 
-    weights = self._initialize_weights()
-    self.all_weights = weights
-
-    self.images = tf.placeholder("float", [self.batch_size, self.image_size, self.image_size, self.image_dims])
-    self.z = tf.placeholder("float", [self.batch_size, 1, 1, self.z_dims])
-
-    self.gen_cost = self.get_gen_cost()
-    self.disc_cost = dict()
-    for disc_i in xrange(len(self.discriminator_dims)):
-      self.disc_cost[disc_i] = self.get_disc_cost(disc_i)
-
-
-  def _initialize_weights(self):
-    all_weights = dict()
-
-    # init generator weights
-    prev_layer_dims = self.z_dims
-    for layer_i in xrange(len(self.generator_dims)):
-      name = 'gen_w' + str(layer_i)
-      all_weights[name] = tf.get_variable(name, 
-            [self.generator_kernel_sizes[layer_i], 
-             self.generator_kernel_sizes[layer_i], 
-             self.generator_dims[layer_i], 
-             prev_layer_dims], 
-          tf.float32,
-          self.initializer)
-      name = 'gen_b' + str(layer_i)
-      all_weights[name] = tf.get_variable(name, 
-          [self.generator_dims[layer_i]], tf.float32, tf.constant_initializer(0.0))
-      prev_layer_dims = self.generator_dims[layer_i]
-
-    # init discriminator weights
-    for disc_i in xrange(len(self.discriminator_dims)):
-      prev_layer_dims = self.image_dims
-      for layer_i in xrange(len(self.discriminator_dims[disc_i])):
-        name = 'disc' + str(disc_i) + '_w' + str(layer_i)
-        all_weights[name] = tf.get_variable(name, 
-              [self.discriminator_kernel_sizes[disc_i][layer_i], 
-               self.discriminator_kernel_sizes[disc_i][layer_i], 
-               prev_layer_dims,
-               self.discriminator_dims[disc_i][layer_i]],
-            tf.float32,
-            self.initializer)
-
-        name = 'disc' + str(disc_i) + '_b' + str(layer_i)
-        all_weights[name] = tf.get_variable(name, [self.discriminator_dims[disc_i][layer_i]], tf.float32, tf.constant_initializer(0.0))
-        prev_layer_dims = self.discriminator_dims[disc_i][layer_i]
-
-    return all_weights
+        self.images = tf.placeholder("float", [self.batch_size, self.image_size, self.image_size, self.image_dim])
+        #self.z = tf.placeholder("float", [self.batch_size, 1, 1, self.z_dim])
+        self.z = tf.random_normal([self.batch_size, 1, 1, self.z_dim])
 
 
-  def generator(self):
-    prev_layer = self.z
-    for layer_i in xrange(len(self.generator_dims)):
-      conv = tf.nn.conv2d_transpose(prev_layer, self.all_weights['gen_w'+str(layer_i)], 
-          output_shape=[self.batch_size, 
-                self.generator_shapes[layer_i], 
-                self.generator_shapes[layer_i], 
-                self.generator_dims[layer_i]], 
-          strides=[1, 2, 2, 1], padding='SAME')
-      bias = tf.nn.bias_add(conv, self.all_weights['gen_b'+str(layer_i)])
-      prev_layer = tf.nn.elu(bias, name=scope.name)
-      
-    return prev_layer
+        true_labels = np.concatenate(
+                [np.ones([self.batch_size, 1]), np.zeros([self.batch_size, 1])], 
+                1).astype('float32')
+        self.true_labels = tf.convert_to_tensor(true_labels)
+        self.false_labels = tf.convert_to_tensor(1-true_labels)
 
 
-  def discriminator_logits(self, disc_i):
-    prev_layer = self.images
-    for layer_i in xrange(len(self.discriminator_dims[disc_i])):
-      conv = tf.nn.conv2d(prev_layer, 
-          self.all_weights['disc'+str(disc_i)+'_w'+str(layer_i)],
-          strides=[1, 2, 2, 1], padding='SAME')
-      bias = tf.nn.bias_add(conv, self.all_weights['disc'+str(disc_i)+'_b'+str(layer_i)])
-      prev_layer = tf.nn.elu(bias, name=scope.name)
-    return prev_layer
+    def _initialize_weights(self):
+        all_weights = {}
+        gen_vars = []
+        disc_vars = []
 
-  def get_gen_cost(self):
-    pass
+        # init generator weights
+        prev_layer_dim = self.z_dim
+        for layer_i in xrange(len(self.generator_params['dim'])):
+            name = 'gen_w' + str(layer_i)
+            all_weights[name] = ops.variable(name, 
+                  [self.generator_params['ksize'][layer_i], 
+                   self.generator_params['ksize'][layer_i], 
+                   self.generator_params['dim'][layer_i], 
+                   prev_layer_dim], 
+                self.initializer)
+            gen_vars.append(all_weights[name])
+            name = 'gen_b' + str(layer_i)
+            all_weights[name] = ops.variable(name, 
+                [self.generator_params['dim'][layer_i]], 
+                )
+            gen_vars.append(all_weights[name])
+            prev_layer_dim = self.generator_params['dim'][layer_i]
 
-  def get_disc_cost(self, i):
-    pass
+        # init discriminator weights
+        for disc_i in xrange(len(self.discriminators_params)):
+            prev_layer_dim = self.image_dim
+            cur_params = self.discriminators_params[disc_i]
+            for layer_i in xrange(len(cur_params['dim'])):
+                name = 'disc' + str(disc_i) + '_w' + str(layer_i)
+                all_weights[name] = ops.variable(name, 
+                      [cur_params['ksize'][layer_i], 
+                       cur_params['ksize'][layer_i], 
+                       prev_layer_dim,
+                       cur_params['dim'][layer_i]],
+                    self.initializer)
 
-  def train_step(self, global_step):
-    pass
+                disc_vars.append(all_weights[name])
+                name = 'disc' + str(disc_i) + '_b' + str(layer_i)
+                all_weights[name] = ops.variable(name, 
+                        [cur_params['dim'][layer_i]], 
+                        tf.constant_initializer(0.0))
+                disc_vars.append(all_weights[name])
+                prev_layer_dim = cur_params['dim'][layer_i]
 
+        return all_weights, gen_vars, disc_vars
+
+
+    def generator(self):
+        prev_layer = self.z
+        num_layers = len(self.generator_params['dim'])
+        for layer_i in xrange(num_layers):
+            conv = tf.nn.conv2d_transpose(prev_layer, self.all_weights['gen_w'+str(layer_i)], 
+                output_shape=[self.batch_size, 
+                      self.generator_params['shape'][layer_i], 
+                      self.generator_params['shape'][layer_i], 
+                      self.generator_params['dim'][layer_i]], 
+                strides=[1, 2, 2, 1], padding='SAME')
+            lin = tf.nn.bias_add(conv, self.all_weights['gen_b'+str(layer_i)])
+            if layer_i+1==num_layers:
+                nonlin = -0.1 + 1.2*tf.nn.sigmoid(lin)
+            else:
+                #TODO: ops.batch_norm
+                nonlin = tf.nn.elu(lin)
+                prev_layer = nonlin
+        return nonlin
+
+    def discriminators_logits(self, input_batch):
+        all_logits = []
+        for disc_i in xrange(len(self.discriminators_params)):
+            all_logits.append(self.discriminator_logits(disc_i, input_batch))
+        all_logits = tf.pack(all_logits)
+        logits = tf.reduce_sum(all_logits, reduction_indices=[0])
+        return logits
+
+
+    def discriminator_logits(self, disc_i, input_batch):
+        cur_params = self.discriminators_params[disc_i]
+        prev_layer = input_batch
+        for layer_i in xrange(len(cur_params['dim'])):
+            conv = tf.nn.conv2d(prev_layer, 
+                self.all_weights['disc'+str(disc_i)+'_w'+str(layer_i)],
+                strides=[1, 2, 2, 1], padding='VALID')
+            lin = tf.nn.bias_add(conv, self.all_weights['disc'+str(disc_i)+'_b'+str(layer_i)])
+            #TODO ops.batch_norm
+            nonlin = tf.nn.elu(lin)
+            prev_layer = nonlin
+        return tf.reshape(nonlin, [-1, 2])
+
+    def get_losses(self):
+        self.fake_images = self.generator()
+
+        fake_disc_logits = self.discriminators_logits(self.fake_images)
+        real_disc_logits = self.discriminators_logits(self.images)
+
+        gen_loss = tf.nn.softmax_cross_entropy_with_logits(fake_disc_logits, self.true_labels)
+        gen_loss = tf.reduce_sum(gen_loss)
+
+        real_disc_loss = tf.nn.softmax_cross_entropy_with_logits(
+                real_disc_logits, self.true_labels)
+        fake_disc_loss = tf.nn.softmax_cross_entropy_with_logits(
+                fake_disc_logits, self.false_labels)
+
+        disc_loss = tf.reduce_sum(real_disc_loss + fake_disc_loss)
+        return gen_loss, disc_loss
+
+    def train_steps(self, global_step):
+        # Variables that affect learning rate.
+        decay_steps = int(flags.NUM_STEPS_PER_DECAY)
+        initial_learning_rate = flags.INITIAL_LEARNING_RATE
+        learning_rate_decay_factor = flags.LEARNING_RATE_DECAY_FACTOR
+        moving_average_decay = flags.MOVING_AVERAGE_DECAY
+
+        self.gen_loss, self.disc_loss = self.get_losses()
+
+        # Compute gradients.
+        with tf.control_dependencies([self.gen_loss, self.disc_loss]):
+            gen_train_step_op = ops.train(self.gen_loss, global_step, decay_steps, initial_learning_rate, learning_rate_decay_factor, moving_average_decay, self.gen_vars, 'gen')
+            disc_train_step_op = ops.train(self.disc_loss, global_step, decay_steps, initial_learning_rate, learning_rate_decay_factor, moving_average_decay, self.disc_vars, 'disc')
+
+            return [gen_train_step_op, disc_train_step_op]
+
+        
 
