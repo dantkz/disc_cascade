@@ -3,35 +3,33 @@ import tensorflow as tf
 from tensorflow.python.framework.ops import Tensor as tftensor
 
 class batch_norm(object):
-    def __init__(self, x, epsilon=1e-5, momentum = 0.9, name=''):
-        self.name = "batch_norm" + name
+    def __init__(self, xdim, epsilon=1e-5, momentum = 0.9, name=''):
         with tf.variable_scope(name) as scope:
             self.epsilon = epsilon
             self.momentum = momentum
 
             self.ema = tf.train.ExponentialMovingAverage(decay=self.momentum)
-            self.pop_mean = variable('pop_mean', [x.get_shape()[-1]], tf.constant_initializer(0.0), trainable=False)
-            self.pop_var = variable('pop_var', [x.get_shape()[-1]], tf.constant_initializer(1.0), trainable=False)
-            self.beta = variable('beta', [x.get_shape()[-1]], tf.constant_initializer(0.0))
-            self.gamma = variable('gamma', [x.get_shape()[-1]], tf.constant_initializer(1.0))
+            self.pop_mean = variable('pop_mean', [xdim], tf.constant_initializer(0.0), trainable=False)
+            self.pop_var = variable('pop_var', [xdim], tf.constant_initializer(1.0), trainable=False)
+            self.beta = variable('beta', [xdim], tf.constant_initializer(0.0))
+            self.gamma = variable('gamma', [xdim], tf.constant_initializer(1.0))
 
 
     def __call__(self, x, istrain=True):
-        with tf.variable_scope(self.name) as scope:
-            if istrain:
-                batch_mean, batch_var = tf.nn.moments(x, [0, 1, 2], name='moments')
-                ema_apply_op = self.ema.apply([batch_mean, batch_var])
-                pop_mean_op = tf.assign(self.pop_mean, self.ema.average(batch_mean))
-                pop_var_op = tf.assign(self.pop_var, self.ema.average(batch_var))
+        if istrain:
+            batch_mean, batch_var = tf.nn.moments(x, [0, 1, 2], name='moments')
+            ema_apply_op = self.ema.apply([batch_mean, batch_var])
+            pop_mean_op = tf.assign(self.pop_mean, self.ema.average(batch_mean))
+            pop_var_op = tf.assign(self.pop_var, self.ema.average(batch_var))
 
-                with tf.control_dependencies([ema_apply_op, pop_mean_op, pop_var_op]):
-                    mean, var = tf.identity(batch_mean), tf.identity(batch_var)
-            else:
-                mean, var = self.pop_mean, self.pop_var
+            with tf.control_dependencies([ema_apply_op, pop_mean_op, pop_var_op]):
+                mean, var = tf.identity(batch_mean), tf.identity(batch_var)
+        else:
+            mean, var = self.pop_mean, self.pop_var
 
-            normed = tf.nn.batch_norm_with_global_normalization(
-                x, mean, var, self.beta, self.gamma, self.epsilon, scale_after_normalization=True)
-
+        normed = tf.nn.batch_norm_with_global_normalization(
+            x, mean, var, self.beta, self.gamma, self.epsilon, scale_after_normalization=True)
+       
         return normed
 
  

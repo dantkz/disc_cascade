@@ -30,12 +30,12 @@ class GAN(object):
 
         self.discriminators_params = [
                 {
-                    'dim': [5, 2],
+                    'dim': [1, 2],
                     'ksize' : [28, 1]
                 }
             ]
 
-        self.all_weights, self.gen_vars, self.disc_vars  = self._initialize_weights()
+        self.all_weights, self.batch_norms, self.gen_vars, self.disc_vars  = self._initialize_params()
 
         self.images = tf.placeholder("float", [self.batch_size, self.image_size, self.image_size, self.image_dim])
         #self.z = tf.placeholder("float", [self.batch_size, 1, 1, self.z_dim])
@@ -49,8 +49,9 @@ class GAN(object):
         self.false_labels = tf.convert_to_tensor(1-true_labels)
 
 
-    def _initialize_weights(self):
+    def _initialize_params(self):
         all_weights = {}
+        batch_norms = {}
         gen_vars = []
         disc_vars = []
 
@@ -65,11 +66,16 @@ class GAN(object):
                    prev_layer_dim], 
                 self.initializer)
             gen_vars.append(all_weights[name])
-            name = 'gen_b' + str(layer_i)
-            all_weights[name] = ops.variable(name, 
-                [self.generator_params['dim'][layer_i]], 
-                )
-            gen_vars.append(all_weights[name])
+
+            if layer_i+1==len(self.generator_params['dim']):
+                name = 'gen_b' + str(layer_i)
+                all_weights[name] = ops.variable(name, 
+                    [self.generator_params['dim'][layer_i]], 
+                    )
+                gen_vars.append(all_weights[name])
+            else:
+                name = 'gen_bn' + str(layer_i)
+                batch_norms[name] = ops.batch_norm(self.generator_params['dim'][layer_i], name=name)
             prev_layer_dim = self.generator_params['dim'][layer_i]
 
         # init discriminator weights
@@ -86,14 +92,18 @@ class GAN(object):
                     self.initializer)
 
                 disc_vars.append(all_weights[name])
-                name = 'disc' + str(disc_i) + '_b' + str(layer_i)
-                all_weights[name] = ops.variable(name, 
-                        [cur_params['dim'][layer_i]], 
-                        tf.constant_initializer(0.0))
-                disc_vars.append(all_weights[name])
+                #name = 'disc' + str(disc_i) + '_b' + str(layer_i)
+                #all_weights[name] = ops.variable(name, 
+                #        [cur_params['dim'][layer_i]], 
+                #        tf.constant_initializer(0.0))
+                #disc_vars.append(all_weights[name])
+
+                name = 'disc_' + str(disc_i) + '_bn' + str(layer_i)
+                batch_norms[name] = ops.batch_norm(cur_params['dim'][layer_i], name=name)
+
                 prev_layer_dim = cur_params['dim'][layer_i]
 
-        return all_weights, gen_vars, disc_vars
+        return all_weights, batch_norms, gen_vars, disc_vars
 
 
     def generator(self):
@@ -106,12 +116,13 @@ class GAN(object):
                       self.generator_params['shape'][layer_i], 
                       self.generator_params['dim'][layer_i]], 
                 strides=[1, 2, 2, 1], padding='SAME')
-            lin = tf.nn.bias_add(conv, self.all_weights['gen_b'+str(layer_i)])
             if layer_i+1==num_layers:
+                lin = tf.nn.bias_add(conv, self.all_weights['gen_b'+str(layer_i)])
                 nonlin = -0.1 + 1.2*tf.nn.sigmoid(lin)
             else:
-                #TODO: ops.batch_norm
-                nonlin = tf.nn.elu(lin)
+                lin = conv
+                linbn = self.batch_norms['gen_bn' + str(layer_i)](lin)
+                nonlin = tf.nn.elu(linbn)
                 prev_layer = nonlin
         return nonlin
 
@@ -131,9 +142,10 @@ class GAN(object):
             conv = tf.nn.conv2d(prev_layer, 
                 self.all_weights['disc'+str(disc_i)+'_w'+str(layer_i)],
                 strides=[1, 2, 2, 1], padding='VALID')
-            lin = tf.nn.bias_add(conv, self.all_weights['disc'+str(disc_i)+'_b'+str(layer_i)])
-            #TODO ops.batch_norm
-            nonlin = tf.nn.elu(lin)
+            #lin = tf.nn.bias_add(conv, self.all_weights['disc'+str(disc_i)+'_b'+str(layer_i)])
+            lin = conv
+            linbn = self.batch_norms['disc_' + str(disc_i) + '_bn' + str(layer_i)](lin)
+            nonlin = tf.nn.elu(linbn)
             prev_layer = nonlin
         return tf.reshape(nonlin, [-1, 2])
 
@@ -144,7 +156,7 @@ class GAN(object):
         real_disc_logits = self.discriminators_logits(self.images)
 
         gen_loss = tf.nn.softmax_cross_entropy_with_logits(fake_disc_logits, self.true_labels)
-        gen_loss = tf.reduce_sum(gen_loss)
+        gen_loss = 2*tf.reduce_sum(gen_loss)
 
         real_disc_loss = tf.nn.softmax_cross_entropy_with_logits(
                 real_disc_logits, self.true_labels)
@@ -157,7 +169,6 @@ class GAN(object):
     def train_steps(self, global_step):
         # Variables that affect learning rate.
         decay_steps = int(flags.NUM_STEPS_PER_DECAY)
-        initial_learning_rate = flags.INITIAL_LEARNING_RATE
         learning_rate_decay_factor = flags.LEARNING_RATE_DECAY_FACTOR
         moving_average_decay = flags.MOVING_AVERAGE_DECAY
 
@@ -165,8 +176,25 @@ class GAN(object):
 
         # Compute gradients.
         with tf.control_dependencies([self.gen_loss, self.disc_loss]):
-            gen_train_step_op = ops.train(self.gen_loss, global_step, decay_steps, initial_learning_rate, learning_rate_decay_factor, moving_average_decay, self.gen_vars, 'gen')
-            disc_train_step_op = ops.train(self.disc_loss, global_step, decay_steps, initial_learning_rate, learning_rate_decay_factor, moving_average_decay, self.disc_vars, 'disc')
+            gen_train_step_op = ops.train(
+                    self.gen_loss, 
+                    global_step, 
+                    decay_steps, 
+                    flags.GEN_INITIAL_LEARNING_RATE,
+                    learning_rate_decay_factor, 
+                    moving_average_decay, 
+                    self.gen_vars, 
+                    'gen')
+
+            disc_train_step_op = ops.train(
+                    self.disc_loss, 
+                    global_step, 
+                    decay_steps, 
+                    flags.DISC_INITIAL_LEARNING_RATE,
+                    learning_rate_decay_factor, 
+                    moving_average_decay, 
+                    self.disc_vars, 
+                    'disc')
 
             return [gen_train_step_op, disc_train_step_op]
 

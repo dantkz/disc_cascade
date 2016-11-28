@@ -5,13 +5,21 @@ from datetime import datetime
 import time
 import os
 from six.moves import xrange  # pylint: disable=redefined-builtin
-from six.moves import xrange  # pylint: disable=redefined-builtin
+import scipy.misc
+
 
 import mnist as mnist_data
 mnist = mnist_data.read_data_sets("/tmp/data/", one_hot=True)
 
 from model import GAN
+
 import flags
+
+def save_images(images, target_dir=flags.train_dir, prefix=''):
+    for i in xrange(images.shape[0]):
+        name = prefix + str(i) + '.png'
+        img = np.squeeze(images[i,:,:,:])
+        scipy.misc.toimage(img, cmin=0.0, cmax=1.0).save(os.path.join(target_dir, name))
 
 def train():
 
@@ -33,11 +41,11 @@ def train():
         )
         sess = tf.Session(config=config)
 
-        summary_writer = tf.train.SummaryWriter('log/', sess.graph)
+        summary_writer = tf.train.SummaryWriter(flags.train_dir, sess.graph)
 
         sess.run(tf.initialize_all_variables())
 
-        num_steps = int(mnist.train.num_examples/batch_size)
+        num_steps = 5000 #int(mnist.train.num_examples/batch_size)
 
         for step in xrange(num_steps):
             start_time = time.time()
@@ -49,6 +57,10 @@ def train():
             _ = sess.run(train_steps_op, feed_dict=cur_feed_dict)
             gen_loss_val, disc_loss_val = sess.run([gan.gen_loss, gan.disc_loss], feed_dict=cur_feed_dict)
 
+            if step%2==1:
+                fake_images = sess.run(gan.fake_images)
+                save_images(fake_images, prefix='fake')
+
             if step%1==0 or (step + 1) == num_steps:
                 format_str = ('%s: step %d of %d, gen_loss = %.5f, disc_loss = %.5f')
                 print (format_str % (datetime.now(), step, num_steps-1, gen_loss_val, disc_loss_val))
@@ -58,7 +70,7 @@ def train():
                 summary_writer.add_summary(summary_str, step)
 
             # Save the model checkpoint periodically.
-            if step%10==0 or (step + 1)==num_steps:
+            if step%50==0 or (step + 1)==num_steps:
                 checkpoint_path = os.path.join(flags.train_dir, 'model.ckpt')
                 saver.save(sess, checkpoint_path, global_step=(step))
 
