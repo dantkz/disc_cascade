@@ -48,11 +48,8 @@ def train():
             cur_feed_dict={gan.images: train_images}
             _ = sess.run(train_steps_op, feed_dict=cur_feed_dict)
             gen_loss_val, disc_loss_val = sess.run([gan.gen_loss, gan.disc_loss], feed_dict=cur_feed_dict)
-            print(gen_loss_val)
-            print(disc_loss_val)
 
-
-            if step%10==0 or (step + 1) == num_steps:
+            if step%1==0 or (step + 1) == num_steps:
                 format_str = ('%s: step %d of %d, gen_loss = %.5f, disc_loss = %.5f')
                 print (format_str % (datetime.now(), step, num_steps-1, gen_loss_val, disc_loss_val))
 
@@ -66,8 +63,11 @@ def train():
                 saver.save(sess, checkpoint_path, global_step=(step))
 
 def main(argv=None):  # pylint: disable=unused-argument
-  train()
+    if not os.path.exists(flags.train_dir):
+        os.makedirs(flags.train_dir)
+    
+    train()
 
 if __name__ == '__main__':
-  tf.app.run()
+    tf.app.run()
 
