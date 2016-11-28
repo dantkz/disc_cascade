@@ -12,3 +12,5 @@ INITIAL_LEARNING_RATE = 0.001      # Initial learning rate.
 
 log_device_placement = False
 eval_interval_secs = 60 * 1
+
+train_dir = 'logs'

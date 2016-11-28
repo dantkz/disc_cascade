@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 from datetime import datetime
 import time
+import os
 from six.moves import xrange  # pylint: disable=redefined-builtin
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
