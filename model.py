@@ -30,7 +30,7 @@ class GAN(object):
 
         self.discriminators_params = [
                 {
-                    'dim': [1, 2],
+                    'dim': [5, 2],
                     'ksize' : [28, 1]
                 }
             ]
