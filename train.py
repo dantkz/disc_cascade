@@ -26,7 +26,7 @@ def train():
     with tf.Graph().as_default():
 
         global_step = tf.Variable(0, trainable=False)
-        batch_size = 128
+        batch_size = 32
 
         gan = GAN(batch_size=batch_size)
         train_steps_op = gan.train_steps(global_step)
@@ -53,12 +53,14 @@ def train():
             train_images, _, _ = mnist.train.next_batch(batch_size)
             train_images = train_images.reshape([batch_size, 28, 28, 1])
 
-            cur_feed_dict={gan.images: train_images}
+            input_z = np.random.uniform(low=0.0, high=1.0, size=[batch_size, 1, 1, gan.z_dim]).astype('float32')
+
+            cur_feed_dict={gan.images: train_images, gan.input_z : input_z}
             _ = sess.run(train_steps_op, feed_dict=cur_feed_dict)
             gen_loss_val, disc_loss_val = sess.run([gan.gen_loss, gan.disc_loss], feed_dict=cur_feed_dict)
 
-            if step%2==1:
-                fake_images = sess.run(gan.fake_images)
+            if step%100==1:
+                fake_images = sess.run(gan.fake_images, feed_dict=cur_feed_dict)
                 save_images(fake_images, prefix='fake')
 
             if step%1==0 or (step + 1) == num_steps:
@@ -70,7 +72,7 @@ def train():
                 summary_writer.add_summary(summary_str, step)
 
             # Save the model checkpoint periodically.
-            if step%50==0 or (step + 1)==num_steps:
+            if step%1000==0 or (step + 1)==num_steps:
                 checkpoint_path = os.path.join(flags.train_dir, 'model.ckpt')
                 saver.save(sess, checkpoint_path, global_step=(step))
 
