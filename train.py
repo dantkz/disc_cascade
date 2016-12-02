@@ -30,6 +30,7 @@ def train():
 
         gan = GAN(batch_size=batch_size)
         train_steps_op = gan.train_steps(global_step)
+        #gen_train_step_op, disc_train_step_op = gan.train_steps(global_step)
 
         saver = tf.train.Saver(tf.all_variables())
 

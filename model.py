@@ -20,7 +20,7 @@ class GAN(object):
         self.image_dim = image_dim 
         self.z_dim = z_dim
 
-        self.initializer = tf.contrib.layers.xavier_initializer_conv2d(uniform=True)
+        self.initializer = tf.contrib.layers.xavier_initializer_conv2d(uniform=False)
 
         self.generator_params = {
             'dim' : [256, 128, 128, 64, image_dim],
@@ -161,8 +161,8 @@ class GAN(object):
             if layer_i+1==len(cur_params['dim']):
                 nonlin = tf.nn.bias_add(conv, self.all_weights['disc'+str(disc_i)+'_b'+str(layer_i)])
             else:
-                lin = conv
-                linbn = self.batch_norms['disc_' + str(disc_i) + '_bn' + str(layer_i)](lin)
+                #linbn = tf.nn.bias_add(conv, self.all_weights['disc'+str(disc_i)+'_b'+str(layer_i)])
+                linbn = self.batch_norms['disc_' + str(disc_i) + '_bn' + str(layer_i)](conv)
                 nonlin = tf.nn.elu(linbn)
                 prev_layer = nonlin
         return tf.reshape(nonlin, [-1, 2])
