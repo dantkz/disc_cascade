@@ -148,7 +148,7 @@ class GAN(object):
         for layer_i in xrange(len(cur_params['dim'])):
             prev_layer_size = prev_layer.get_shape().as_list()[1]
             cur_kernel = self.all_weights['disc'+str(disc_i)+'_w'+str(layer_i)]
-            if prev_layer_size>=cur_kernel.get_shape().as_list()[1]:
+            if prev_layer_size>cur_kernel.get_shape().as_list()[1]:
                 conv = tf.nn.conv2d(prev_layer, 
                     cur_kernel,
                     strides=[1, 2, 2, 1], padding='SAME')
