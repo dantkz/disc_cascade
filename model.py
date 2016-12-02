@@ -170,9 +170,12 @@ class GAN(object):
     def get_losses(self):
         self.fake_images = self.generator()
 
-        disc_input = tf.concat(0, [self.fake_images, self.images])
-        disc_logits = self.discriminators_logits(disc_input)
-        fake_disc_logits, real_disc_logits = tf.split(0, 2, disc_logits)
+        #disc_input = tf.concat(0, [self.fake_images, self.images])
+        #disc_logits = self.discriminators_logits(disc_input)
+        #fake_disc_logits, real_disc_logits = tf.split(0, 2, disc_logits)
+
+        fake_disc_logits = self.discriminators_logits(self.fake_images)
+        real_disc_logits = self.discriminators_logits(self.images)
 
         with tf.control_dependencies([fake_disc_logits, real_disc_logits]):
             fake_gen_loss = tf.nn.softmax_cross_entropy_with_logits(fake_disc_logits, self.true_labels)
