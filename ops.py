@@ -102,7 +102,7 @@ def variable_with_weight_decay(name, shape, stddev, wd):
     return var
 
 
-def train(total_loss, global_step, decay_steps, initial_learning_rate, learning_rate_decay_factor, moving_average_decay, target_vars=tf.trainable_variables(), name='all'):
+def train(total_loss, global_step, decay_steps, initial_learning_rate, learning_rate_decay_factor, moving_average_decay, beta1=0.5, target_vars=tf.trainable_variables(), name='all'):
     """Train the model.
   
     Create an optimizer and apply to target trainable variables. Add moving
@@ -124,7 +124,7 @@ def train(total_loss, global_step, decay_steps, initial_learning_rate, learning_
                                     staircase=True)
     tf.scalar_summary('learning_rate_'+name, lr)
 
-    opt = tf.train.AdamOptimizer(lr)
+    opt = tf.train.AdamOptimizer(lr, beta1=beta1)
     grads = opt.compute_gradients(total_loss, var_list=target_vars)
   
     # Apply gradients.

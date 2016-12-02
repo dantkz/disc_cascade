@@ -26,7 +26,7 @@ def train():
     with tf.Graph().as_default():
 
         global_step = tf.Variable(0, trainable=False)
-        batch_size = 32
+        batch_size = 64
 
         gan = GAN(batch_size=batch_size)
         train_steps_op = gan.train_steps(global_step)
@@ -53,7 +53,7 @@ def train():
             train_images, _, _ = mnist.train.next_batch(batch_size)
             train_images = train_images.reshape([batch_size, 28, 28, 1])
 
-            input_z = np.random.uniform(low=0.0, high=1.0, size=[batch_size, 1, 1, gan.z_dim]).astype('float32')
+            input_z = np.random.uniform(low=-1.0, high=1.0, size=[batch_size, 1, 1, gan.z_dim]).astype('float32')
 
             cur_feed_dict={gan.images: train_images, gan.input_z : input_z}
             _ = sess.run(train_steps_op, feed_dict=cur_feed_dict)
