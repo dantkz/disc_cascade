@@ -73,7 +73,7 @@ def train():
                 summary_writer.add_summary(summary_str, step)
 
             # Save the model checkpoint periodically.
-            if step%1000==0 or (step + 1)==num_steps:
+            if step%10000==0 or (step + 1)==num_steps:
                 checkpoint_path = os.path.join(flags.train_dir, 'model.ckpt')
                 saver.save(sess, checkpoint_path, global_step=(step))
 
