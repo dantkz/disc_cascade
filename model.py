@@ -10,11 +10,11 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 import ops
-import flags
 
 class GAN(object):
   
-    def __init__(self, batch_size, image_size=28, image_dim=1, z_dim=16):
+    def __init__(self, batch_size, flags, image_size=28, image_dim=1, z_dim=16):
+        self.flags = flags
         self.batch_size = batch_size
         self.image_size = image_size
         self.image_dim = image_dim 
@@ -189,9 +189,9 @@ class GAN(object):
 
     def train_steps(self, global_step):
         # Variables that affect learning rate.
-        decay_steps = int(flags.NUM_STEPS_PER_DECAY)
-        learning_rate_decay_factor = flags.LEARNING_RATE_DECAY_FACTOR
-        moving_average_decay = flags.MOVING_AVERAGE_DECAY
+        decay_steps = int(self.flags.NUM_STEPS_PER_DECAY)
+        learning_rate_decay_factor = self.flags.LEARNING_RATE_DECAY_FACTOR
+        moving_average_decay = self.flags.MOVING_AVERAGE_DECAY
 
         self.gen_loss, self.disc_loss = self.get_losses()
 
@@ -201,7 +201,7 @@ class GAN(object):
                     self.gen_loss, 
                     global_step, 
                     decay_steps, 
-                    flags.GEN_INITIAL_LEARNING_RATE,
+                    self.flags.GEN_INITIAL_LEARNING_RATE,
                     learning_rate_decay_factor, 
                     moving_average_decay, 
                     target_vars=self.gen_vars, 
@@ -211,7 +211,7 @@ class GAN(object):
                     self.disc_loss, 
                     global_step, 
                     decay_steps, 
-                    flags.DISC_INITIAL_LEARNING_RATE,
+                    self.flags.DISC_INITIAL_LEARNING_RATE,
                     learning_rate_decay_factor, 
                     moving_average_decay, 
                     target_vars=self.disc_vars, 

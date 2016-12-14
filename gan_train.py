@@ -13,7 +13,7 @@ mnist = mnist_data.read_data_sets("/tmp/data/", one_hot=True)
 
 from model import GAN
 
-import flags
+import gan_flags as flags
 
 def save_images(images, target_dir=flags.train_dir, prefix=''):
     for i in xrange(images.shape[0]):
@@ -28,7 +28,7 @@ def train():
         global_step = tf.Variable(0, trainable=False)
         batch_size = 64
 
-        gan = GAN(batch_size=batch_size)
+        gan = GAN(batch_size, flags)
         train_steps_op = gan.train_steps(global_step)
         #gen_train_step_op, disc_train_step_op = gan.train_steps(global_step)
 
