@@ -1,26 +1,21 @@
 from __future__ import division, print_function, absolute_import
 
-from datetime import datetime
-import os.path
-import time
-import math
-
-import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
+import numpy as np
 
 import ops
 
 class GAN(object):
   
-    def __init__(self, batch_size, flags, image_size=28, image_dim=1, z_dim=16):
+    def __init__(self, batch_size, flags, image_size=28, image_dim=1, z_dim=16, initializer=tf.random_normal_initializer(stddev=1e-3)):
         self.flags = flags
         self.batch_size = batch_size
         self.image_size = image_size
         self.image_dim = image_dim 
         self.z_dim = z_dim
 
-        self.initializer = tf.contrib.layers.xavier_initializer_conv2d(uniform=False)
+        self.initializer = initializer #tf.contrib.layers.xavier_initializer_conv2d(uniform=False)
 
         self.generator_params = {
             'dim' : [256, 128, 128, 64, image_dim],
@@ -29,10 +24,10 @@ class GAN(object):
             }
 
         self.discriminators_params = [
-                #{
-                #    'dim': [256, 256, 2],
-                #    'ksize' : [28, 1, 1]
-                #},
+                {
+                    'dim': [256, 256, 2],
+                    'ksize' : [28, 1, 1]
+                },
                 {
                     'dim': [64, 64, 128, 128, 256, 2],
                     'ksize' : [3, 3, 3, 3, 2, 1]
@@ -169,11 +164,6 @@ class GAN(object):
 
     def get_losses(self):
         self.fake_images = self.generator()
-
-        #disc_input = tf.concat(0, [self.fake_images, self.images])
-        #disc_logits = self.discriminators_logits(disc_input)
-        #fake_disc_logits, real_disc_logits = tf.split(0, 2, disc_logits)
-
         fake_disc_logits = self.discriminators_logits(self.fake_images)
         real_disc_logits = self.discriminators_logits(self.images)
 
