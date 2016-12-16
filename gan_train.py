@@ -21,6 +21,7 @@ def save_images(images, target_dir=flags.train_dir, prefix=''):
         img = np.squeeze(images[i,:,:,:])
         scipy.misc.toimage(img, cmin=0.0, cmax=1.0).save(os.path.join(target_dir, name))
 
+
 def train():
 
     with tf.Graph().as_default():
