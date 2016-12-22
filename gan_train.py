@@ -7,12 +7,10 @@ import os
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import scipy.misc
 
-
 import mnist as mnist_data
 mnist = mnist_data.read_data_sets("/tmp/data/", one_hot=True)
 
-from model import GAN
-
+from gan_model import GAN
 import gan_flags as flags
 
 def save_images(images, target_dir=flags.train_dir, prefix=''):
