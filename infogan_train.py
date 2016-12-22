@@ -10,8 +10,8 @@ import scipy.misc
 import mnist as mnist_data
 mnist = mnist_data.read_data_sets("/tmp/data/", one_hot=True)
 
-from gan_model import GAN
-import gan_flags as flags
+from infogan_model import INFOGAN
+import infogan_flags as flags
 
 def save_images(images, target_dir=flags.train_dir, prefix=''):
     for i in xrange(images.shape[0]):
@@ -27,9 +27,8 @@ def train():
         global_step = tf.Variable(0, trainable=False)
         batch_size = 64
 
-        gan = GAN(batch_size, flags)
-
-        train_steps_op = gan.train_steps(global_step)
+        infogan = InfoGAN(batch_size, flags)
+        train_steps_op = infogan.train_steps(global_step)
 
         saver = tf.train.Saver(tf.all_variables())
 
@@ -54,14 +53,14 @@ def train():
             train_images, _, _ = mnist.train.next_batch(batch_size)
             train_images = train_images.reshape([batch_size, 28, 28, 1])
 
-            input_z = np.random.randn(batch_size, 1, 1, gan.z_dim).astype('float32')
+            input_z = np.random.randn(batch_size, 1, 1, infogan.z_dim).astype('float32')
 
-            cur_feed_dict={gan.images: train_images, gan.input_z : input_z}
+            cur_feed_dict={infogan.images: train_images, infogan.input_z : input_z}
             _ = sess.run(train_steps_op, feed_dict=cur_feed_dict)
-            gen_loss_val, disc_loss_val = sess.run([gan.gen_loss, gan.disc_loss], feed_dict=cur_feed_dict)
+            gen_loss_val, disc_loss_val = sess.run([infogan.gen_loss, infogan.disc_loss], feed_dict=cur_feed_dict)
 
             if step%100==1:
-                fake_images = sess.run(gan.fake_images, feed_dict=cur_feed_dict)
+                fake_images = sess.run(infogan.fake_images, feed_dict=cur_feed_dict)
                 save_images(fake_images, prefix='fake')
 
             if step%1==0 or (step + 1) == num_steps:
@@ -80,7 +79,6 @@ def train():
 def main(argv=None):  # pylint: disable=unused-argument
     if not os.path.exists(flags.train_dir):
         os.makedirs(flags.train_dir)
-    
     train()
 
 if __name__ == '__main__':
