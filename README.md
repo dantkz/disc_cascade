@@ -1,1 +1,1 @@
-* Generative Adversarial Networks in Tensorflow *
+# Generative Adversarial Networks in Tensorflow
