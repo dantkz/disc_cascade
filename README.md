@@ -1,1 +1,1 @@
-Training Generative Adversarial Networks with a Cascade of Discriminators
+* Generative Adversarial Networks in Tensorflow *
